@@ -34,7 +34,11 @@ export class Pose {
       }
       throw new Error(message);
     }
+    const contentType = res.headers.get('content-type');
     const buffer = Buffer.from(await res.arrayBuffer());
+    if (contentType && contentType.includes('video/mp4')) {
+      return buffer;
+    }
     return Pose.from(buffer);
   }
 }
