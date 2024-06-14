@@ -20,13 +20,5 @@
   "devDependencies": {
     "@types/node": "20.8.6",
     "typescript": "5.2.2"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/ashar02/pose.git"
-  },
-  "bugs": {
-    "url": "https://github.com/ashar02/pose/issues"
-  },
-  "homepage": "https://github.com/ashar02/pose#readme"
+  }
 }
