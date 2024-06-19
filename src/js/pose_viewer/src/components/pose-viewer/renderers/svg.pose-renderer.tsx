@@ -1,4 +1,4 @@
-import {PoseBodyFrameModel, PosePointModel, RGBColor} from "pose-format";
+import {PoseBodyFrameModel, PosePointModel, RGBColor} from "dt-pose-format";
 import {PoseRenderer} from "./pose-renderer";
 import {h} from '@stencil/core';
 

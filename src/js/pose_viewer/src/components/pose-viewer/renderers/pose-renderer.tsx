@@ -1,5 +1,5 @@
 import {PoseViewer} from "../pose-viewer";
-import {PoseBodyFrameModel, PoseLimb, PosePointModel, RGBColor} from "pose-format";
+import {PoseBodyFrameModel, PoseLimb, PosePointModel, RGBColor} from "dt-pose-format";
 
 export abstract class PoseRenderer {
 

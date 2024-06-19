@@ -1,6 +1,6 @@
 {
-  "name": "pose-format",
-  "version": "1.4.1",
+  "name": "dt-pose-format",
+  "version": "1.4.2",
   "description": "Library for handling .pose files",
   "scripts": {
     "build": "tsc",
@@ -9,10 +9,10 @@
   "files": [
     "dist/"
   ],
-  "types": "dist/index.d.ts",
+  "types": "dist/types.js",
   "main": "dist/index.js",
   "module": "dist/index.js",
-  "author": "Amit Moryossef",
+  "author": "Ashar",
   "license": "MIT",
   "dependencies": {
     "binary-parser": "2.2.1"

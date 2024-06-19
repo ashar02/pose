@@ -1,7 +1,7 @@
 // @ts-ignore
 import {Component, Element, Event, EventEmitter, h, Host, Method, Prop, State, Watch} from '@stencil/core';
-import type {PoseModel} from "pose-format/dist/types";
-import {Pose} from "pose-format";
+import type {PoseModel} from "dt-pose-format/dist/types";
+import {Pose} from "dt-pose-format/dist";
 // import {Pose, PoseModel} from "../../../../pose_format/dist";
 import {PoseRenderer} from "./renderers/pose-renderer";
 import {SVGPoseRenderer} from "./renderers/svg.pose-renderer";
@@ -70,6 +70,7 @@ export class PoseViewer {
 
   media: HTMLMediaElement;
   pose: PoseModel;
+  buffer: Buffer;
 
   @State() error: Error;
 
@@ -93,7 +94,12 @@ export class PoseViewer {
     }
 
     this.fetchAbortController = new AbortController();
-    this.pose = await Pose.fromRemote(this.src, this.fetchAbortController);
+    const result = await Pose.fromRemote(this.src, this.fetchAbortController);
+    if (result instanceof Pose) {
+      this.pose = result;
+    } else {
+      this.buffer = result;
+    }
   }
 
   private initPose() {
