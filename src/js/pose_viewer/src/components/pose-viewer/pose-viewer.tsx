@@ -59,6 +59,8 @@ export class PoseViewer {
   @Event() play$: EventEmitter<void>;
   @Event() firstRender$: EventEmitter<void>;
   @Event() render$: EventEmitter<void>;
+  @Event() bolbCreated$: EventEmitter<string>;
+
   // @Event() ratechange$: EventEmitter<void>;
   // @Event() seeked$: EventEmitter<void>;
   // @Event() seeking$: EventEmitter<void>;
@@ -73,6 +75,7 @@ export class PoseViewer {
   buffer: Buffer;
 
   @State() error: Error;
+  @State() videoBlobUrl: string = null;
 
   private loopInterval: any;
 
@@ -99,10 +102,20 @@ export class PoseViewer {
       this.pose = result;
     } else {
       this.buffer = result;
+      this.createVideoBlob();
     }
   }
 
+  private createVideoBlob() {
+    const blob = new Blob([this.buffer], { type: 'video/mp4' });
+    this.videoBlobUrl = URL.createObjectURL(blob);
+  }
+
   private initPose() {
+    if (this.videoBlobUrl) {
+      this.bolbCreated$.emit(this.videoBlobUrl);
+      return;
+    }
     this.setDimensions();
 
     // Loaded done events
@@ -312,6 +325,11 @@ export class PoseViewer {
   render() {
     if (this.error) {
       return this.error.name !== "AbortError" ? this.error.message : "";
+    }
+
+    if (this.videoBlobUrl) {
+      // this.bolbCreated$.emit(this.videoBlobUrl);
+      return;
     }
 
     if (!this.pose || isNaN(this.currentTime) || !this.renderer) {
