@@ -40,6 +40,7 @@
 | `loadstart$`      |             | `CustomEvent<void>`   |
 | `pause$`          |             | `CustomEvent<void>`   |
 | `play$`           |             | `CustomEvent<void>`   |
+| `poseError$`      |             | `CustomEvent<any>`    |
 | `render$`         |             | `CustomEvent<void>`   |
 
 

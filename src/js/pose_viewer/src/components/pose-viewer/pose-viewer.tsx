@@ -60,7 +60,7 @@ export class PoseViewer {
   @Event() firstRender$: EventEmitter<void>;
   @Event() render$: EventEmitter<void>;
   @Event() blobCreated$: EventEmitter<string>;
-
+  @Event() poseError$: EventEmitter<any>;
   // @Event() ratechange$: EventEmitter<void>;
   // @Event() seeked$: EventEmitter<void>;
   // @Event() seeking$: EventEmitter<void>;
@@ -162,6 +162,7 @@ export class PoseViewer {
     } catch (e) {
       console.error('PoseViewer error', e);
       this.error = e;
+      this.poseError$.emit(e);
     }
   }
 
