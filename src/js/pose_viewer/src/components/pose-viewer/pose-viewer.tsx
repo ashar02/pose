@@ -59,7 +59,7 @@ export class PoseViewer {
   @Event() play$: EventEmitter<void>;
   @Event() firstRender$: EventEmitter<void>;
   @Event() render$: EventEmitter<void>;
-  @Event() bolbCreated$: EventEmitter<string>;
+  @Event() blobCreated$: EventEmitter<string>;
 
   // @Event() ratechange$: EventEmitter<void>;
   // @Event() seeked$: EventEmitter<void>;
@@ -113,7 +113,7 @@ export class PoseViewer {
 
   private initPose() {
     if (this.videoBlobUrl) {
-      this.bolbCreated$.emit(this.videoBlobUrl);
+      this.blobCreated$.emit(this.videoBlobUrl);
       return;
     }
     this.setDimensions();
@@ -328,7 +328,7 @@ export class PoseViewer {
     }
 
     if (this.videoBlobUrl) {
-      // this.bolbCreated$.emit(this.videoBlobUrl);
+      // this.blobCreated$.emit(this.videoBlobUrl);
       return;
     }
 

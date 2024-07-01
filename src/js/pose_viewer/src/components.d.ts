@@ -57,6 +57,7 @@ declare namespace LocalJSX {
         "ended"?: boolean;
         "height"?: string;
         "loop"?: boolean;
+        "onBlobCreated$"?: (event: PoseViewerCustomEvent<string>) => void;
         "onCanplaythrough$"?: (event: PoseViewerCustomEvent<void>) => void;
         "onEnded$"?: (event: PoseViewerCustomEvent<void>) => void;
         "onFirstRender$"?: (event: PoseViewerCustomEvent<void>) => void;

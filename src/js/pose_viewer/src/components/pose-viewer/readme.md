@@ -29,17 +29,18 @@
 
 ## Events
 
-| Event             | Description | Type                |
-| ----------------- | ----------- | ------------------- |
-| `canplaythrough$` |             | `CustomEvent<void>` |
-| `ended$`          |             | `CustomEvent<void>` |
-| `firstRender$`    |             | `CustomEvent<void>` |
-| `loadeddata$`     |             | `CustomEvent<void>` |
-| `loadedmetadata$` |             | `CustomEvent<void>` |
-| `loadstart$`      |             | `CustomEvent<void>` |
-| `pause$`          |             | `CustomEvent<void>` |
-| `play$`           |             | `CustomEvent<void>` |
-| `render$`         |             | `CustomEvent<void>` |
+| Event             | Description | Type                  |
+| ----------------- | ----------- | --------------------- |
+| `blobCreated$`    |             | `CustomEvent<string>` |
+| `canplaythrough$` |             | `CustomEvent<void>`   |
+| `ended$`          |             | `CustomEvent<void>`   |
+| `firstRender$`    |             | `CustomEvent<void>`   |
+| `loadeddata$`     |             | `CustomEvent<void>`   |
+| `loadedmetadata$` |             | `CustomEvent<void>`   |
+| `loadstart$`      |             | `CustomEvent<void>`   |
+| `pause$`          |             | `CustomEvent<void>`   |
+| `play$`           |             | `CustomEvent<void>`   |
+| `render$`         |             | `CustomEvent<void>`   |
 
 
 ## Methods
