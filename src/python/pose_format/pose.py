@@ -1,9 +1,8 @@
 from itertools import chain
-from typing import BinaryIO, Dict, List, Tuple, Type
+from typing import BinaryIO, Dict, List, Tuple, Type, Union
 
 import numpy as np
 import numpy.ma as ma
-
 from pose_format.numpy import NumPyPoseBody
 from pose_format.pose_body import PoseBody
 from pose_format.pose_header import (PoseHeader, PoseHeaderComponent,
@@ -61,6 +60,17 @@ class Pose:
         buffer : BinaryIO
             buffer
         """
+
+        # Sanity check: The body should have 4 dimensions
+        if len(self.body.data.shape) != 4:
+            raise ValueError(f"Body data should have 4 dimensions, not {len(self.body.data.shape)}")
+
+        # Sanity check: Body should have as many dimensions as header
+        header_dims = self.header.num_dims()
+        body_dims = self.body.data.shape[-1]
+        if header_dims != body_dims:
+            raise ValueError(f"Header has {header_dims} dimensions, but body has {body_dims}")
+
         self.header.write(buffer)
         self.body.write(self.header.version, buffer)
 
@@ -77,7 +87,7 @@ class Pose:
         dimensions = (maxs - mins).tolist()
         self.header.dimensions = PoseHeaderDimensions(*dimensions)
 
-    def normalize(self, info: PoseNormalizationInfo, scale_factor: float = 1) -> "Pose":
+    def normalize(self, info: Union[PoseNormalizationInfo,None]=None, scale_factor: float = 1) -> "Pose":
         """
         Normalize the points to a fixed distance between two particular points.
 
@@ -93,6 +103,10 @@ class Pose:
         Pose
             The normalized Pose object.
         """
+        if info is None:
+            from pose_format.utils.generic import pose_normalization_info
+            info = pose_normalization_info(self.header)
+
         transposed = self.body.points_perspective()
 
         p1s = transposed[info.p1]
@@ -189,7 +203,7 @@ class Pose:
         body, selected_indexes = self.body.frame_dropout_normal(dropout_mean=dropout_mean, dropout_std=dropout_std)
         return Pose(header=self.header, body=body), selected_indexes
 
-    def get_components(self, components: List[str], points: Dict[str, List[str]] = None):
+    def get_components(self, components: List[str], points: Union[Dict[str, List[str]],None] = None):
         """
         get pose components based on criteria.
 
@@ -318,3 +332,6 @@ A set of method names which define actions that can be applied to the pose data.
             return body_res
 
         return func
+
+    def __str__(self):
+        return f"Pose\n{self.header}\n{self.body}"

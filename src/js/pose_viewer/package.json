@@ -1,7 +1,8 @@
 {
   "name": "dt-pose-viewer",
-  "version": "0.10.0",
+  "version": "1.0.1",
   "description": "Stencil Component Starter",
+  "homepage": "https://github.com/sign-language-processing/pose",
   "main": "dist/index.cjs.js",
   "module": "dist/index.js",
   "es2015": "dist/esm/index.mjs",
@@ -19,15 +20,16 @@
     "start": "stencil build --dev --watch --serve",
     "test": "stencil test --spec --e2e",
     "test.watch": "stencil test --spec --e2e --watchAll",
-    "generate": "stencil generate"
+    "generate": "stencil generate",
+    "prepare": "npm run build"
   },
   "dependencies": {
-    "@stencil/core": "4.5.0",
-    "dt-pose-format": "1.5.1"
+    "@stencil/core": "4.22.3",
+    "dt-pose-format": "1.6.0"
   },
   "license": "MIT",
   "devDependencies": {
     "rollup-plugin-node-polyfills": "0.2.1",
-    "@types/node": "^20.14.5"
+    "@types/node": "22.10.0"
   }
 }

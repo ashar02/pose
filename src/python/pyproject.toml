@@ -1,7 +1,7 @@
 [project]
 name = "pose_format"
 description = "Library for viewing, augmenting, and handling .pose files"
-version = "0.6.1"
+version = "0.8.3"
 keywords = ["Pose Files", "Pose Interpolation", "Pose Augmentation"]
 authors = [
     { name = "Amit Moryossef", email = "amitmoryossef@gmail.com" },
@@ -58,7 +58,18 @@ testpaths = [
 based_on_style = "google"
 column_limit = 120
 
+[tool.pylint.format]
+max-line-length = 120
+disable = [
+    "C0114", # Missing module docstring
+    "C0115", # Missing class docstring
+    "C0116", # Missing function or method docstring
+    "W0511", # TODO
+    "W1203", # use lazy % formatting in logging functions
+]
+
 [project.scripts]
+pose_info = "pose_format.bin.pose_info:main"
 video_to_pose = "pose_format.bin.pose_estimation:main"
 videos_to_poses = "pose_format.bin.directory:main"
 visualize_pose = "pose_format.bin.pose_visualizer:main"
