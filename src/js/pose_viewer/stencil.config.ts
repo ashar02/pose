@@ -1,30 +1,23 @@
-import { Config } from '@stencil/core';
+import {Config} from '@stencil/core';
 import nodePolyfills from 'rollup-plugin-node-polyfills';
 
 export const config: Config = {
   namespace: 'pose-viewer',
-  buildEs5: false,
+  buildEs5: 'prod',
   plugins: [
     nodePolyfills(),
   ],
-  extras: {
-    enableImportInjection: true,
-  },
   outputTargets: [
     {
       type: 'dist',
-      esmLoaderPath: '../loader',
+      esmLoaderPath: '../loader'
     },
     {
-      type: 'docs-readme',
+      type: 'docs-readme'
     },
     {
       type: 'www',
-      serviceWorker: null, // disable service workers
-    },
-    {
-      type: 'dist-custom-elements',
-      externalRuntime: false,
-    },
-  ],
+      serviceWorker: null // disable service workers
+    }
+  ]
 };

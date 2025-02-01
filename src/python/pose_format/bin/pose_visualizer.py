@@ -3,11 +3,10 @@
 import argparse
 import os
 
-from pose_format.pose import Pose
+import numpy as np
+from pose_format import Pose
 from pose_format.pose_visualizer import PoseVisualizer
 from pose_format.utils.generic import pose_normalization_info
-
-from pose_format.utils.generic import normalize_pose_size
 
 
 def visualize_pose(pose_path: str, video_path: str, normalize=False):
@@ -16,7 +15,12 @@ def visualize_pose(pose_path: str, video_path: str, normalize=False):
 
     if normalize:
         pose = pose.normalize(pose_normalization_info(pose.header))
-        normalize_pose_size(pose)
+
+        new_width = 500
+        shift = 1.25
+        shift_vec = np.full(shape=(pose.body.data.shape[-1]), fill_value=shift, dtype=np.float32)
+        pose.body.data = (pose.body.data + shift_vec) * new_width
+        pose.header.dimensions.height = pose.header.dimensions.width = int(new_width * shift * 2)
 
     v = PoseVisualizer(pose)
 

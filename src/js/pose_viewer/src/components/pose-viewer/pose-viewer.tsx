@@ -2,7 +2,6 @@
 import {Component, Element, Event, EventEmitter, h, Host, Method, Prop, State, Watch} from '@stencil/core';
 import type {PoseModel} from "dt-pose-format/dist/types";
 import {Pose} from "dt-pose-format/dist";
-import type {Buffer} from "buffer";
 // import {Pose, PoseModel} from "../../../../pose_format/dist";
 import {PoseRenderer} from "./renderers/pose-renderer";
 import {SVGPoseRenderer} from "./renderers/svg.pose-renderer";
@@ -22,8 +21,8 @@ export class PoseViewer {
   private resizeObserver: ResizeObserver;
   private fetchAbortController: AbortController;
 
-  private lastSrc: string | Buffer;
-  @Prop() src: string | Buffer; // Source URL for .pose file or path to a local file or Buffer
+  private lastSrc: string;
+  @Prop() src: string; // Source URL for .pose file
   @Prop() svg: boolean = false; // Render in an SVG instead of a canvas
 
   // Dimensions
@@ -91,32 +90,19 @@ export class PoseViewer {
     this.resizeObserver.observe(this.element);
   }
 
-  private async loadPose() {
-    // Abort previous request if it exists
+  private async getRemotePose() {
+    // Abort previous request
     if (this.fetchAbortController) {
       this.fetchAbortController.abort();
     }
 
-    if (typeof this.src === 'string') {
-      const isRemoteUrl = this.src.startsWith('http') || this.src.startsWith('//');
-      const isBrowserEnvironment = typeof window !== 'undefined';
-
-      if (isRemoteUrl || isBrowserEnvironment) {
-        // Remote URL or Browser environment
-        this.fetchAbortController = new AbortController();
-        const result = await Pose.fromRemote(this.src, this.fetchAbortController);
-        if (result instanceof Pose) {
-          this.pose = result;
-        } else {
-          this.buffer = result;
-          this.createVideoBlob();
-        }
-      } else {
-        // Local environment
-        this.pose = await Pose.fromLocal(this.src);
-      }
+    this.fetchAbortController = new AbortController();
+    const result = await Pose.fromRemote(this.src, this.fetchAbortController);
+    if (result instanceof Pose) {
+      this.pose = result;
     } else {
-      this.pose = Pose.from(this.src);
+      this.buffer = result;
+      this.createVideoBlob();
     }
   }
 
@@ -170,7 +156,7 @@ export class PoseViewer {
 
     this.error = null;
     try {
-      await this.loadPose();
+      await this.getRemotePose();
       this.initPose();
       this.error = null;
     } catch (e) {

@@ -1,6 +1,1 @@
 .idea/
-.DS_Store
-.vscode/
-.coverage
-.coveragerc
-coverage.lcov

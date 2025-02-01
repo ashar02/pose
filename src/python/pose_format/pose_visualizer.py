@@ -40,8 +40,7 @@ class PoseVisualizer:
         except ImportError:
             raise ImportError("Please install OpenCV with: pip install opencv-python")
 
-    def _draw_frame(self, frame: ma.MaskedArray,
-                    frame_confidence: np.ndarray, img,
+    def _draw_frame(self, frame: ma.MaskedArray, frame_confidence: np.ndarray, img,
                     transparency: bool = False) -> np.ndarray:
         """
         Draw frame of pose data of an image.
@@ -69,12 +68,13 @@ class PoseVisualizer:
         thickness = self.thickness
         if self.thickness is None:
             thickness = round(math.sqrt(img.shape[0] * img.shape[1]) / 150)
-        radius = math.ceil(thickness / 2)
+        radius = round(thickness / 2)
 
         draw_operations = []
 
         for person, person_confidence in zip(frame, frame_confidence):
             c = person_confidence.tolist()
+            points = [p for p in person.tolist()]
             idx = 0
             for component in self.pose.header.components:
                 colors = [np.array(c[::-1]) for c in component.colors]
@@ -91,7 +91,7 @@ class PoseVisualizer:
                 # Collect Points
                 for i, point_name in enumerate(component.points):
                     if c[i + idx] > 0:
-                        center = person[i + idx]
+                        center = points[i + idx]
                         draw_operations.append({
                             'type': 'circle',
                             'center': center,
@@ -103,8 +103,8 @@ class PoseVisualizer:
                         })
 
                 if self.pose.header.is_bbox:
-                    point1 = person[0 + idx]
-                    point2 = person[1 + idx]
+                    point1 = points[0 + idx]
+                    point2 = points[1 + idx]
                     color = tuple(np.mean([_point_color(0), _point_color(1)], axis=0))
 
                     draw_operations.append({
@@ -119,8 +119,8 @@ class PoseVisualizer:
                     # Collect Limbs
                     for (p1, p2) in component.limbs:
                         if c[p1 + idx] > 0 and c[p2 + idx] > 0:
-                            point1 = person[p1 + idx]
-                            point2 = person[p2 + idx]
+                            point1 = points[p1 + idx]
+                            point2 = points[p2 + idx]
 
                             color = tuple(np.mean([_point_color(p1), _point_color(p2)], axis=0))
 
@@ -136,30 +136,27 @@ class PoseVisualizer:
 
                 idx += len(component.points)
 
-        draw_operations = sorted(draw_operations, key=lambda op: op['z'], reverse=True)
-
-        def point_to_xy(point: ma.MaskedArray):
-            return tuple([round(p) for p in point[:2]])
+        draw_operations = sorted(draw_operations, key=lambda op: op['z'])
 
         # Execute draw operations
         for op in draw_operations:
             if op['type'] == 'circle':
                 self.cv2.circle(img=img,
-                                center=point_to_xy(op['center']),
+                                center=tuple(op['center'][:2]),
                                 radius=op['radius'],
                                 color=op['color'],
                                 thickness=op['thickness'],
                                 lineType=op['lineType'])
             elif op['type'] == 'rectangle':
                 self.cv2.rectangle(img=img,
-                                   pt1=point_to_xy(op['pt1']),
-                                   pt2=point_to_xy(op['pt2']),
+                                   pt1=tuple(op['pt1'][:2]),
+                                   pt2=tuple(op['pt2'][:2]),
                                    color=op['color'],
                                    thickness=op['thickness'])
             elif op['type'] == 'line':
                 self.cv2.line(img,
-                              pt1=point_to_xy(op['pt1']),
-                              pt2=point_to_xy(op['pt2']),
+                              pt1=tuple(op['pt1'][:2]),
+                              pt2=tuple(op['pt2'][:2]),
                               color=op['color'],
                               thickness=op['thickness'],
                               lineType=op['lineType'])
@@ -187,11 +184,12 @@ class PoseVisualizer:
         # ...
         if transparency:
             background_color += (0,)
+        int_frames = np.array(np.around(self.pose.body.data.data), dtype="int32")
         background = np.full(
             (self.pose.header.dimensions.height, self.pose.header.dimensions.width, len(background_color)),
             fill_value=background_color,
             dtype="uint8")
-        for frame, confidence in itertools.islice(zip(self.pose.body.data, self.pose.body.confidence), max_frames):
+        for frame, confidence in itertools.islice(zip(int_frames, self.pose.body.confidence), max_frames):
             yield self._draw_frame(frame, confidence, img=background.copy(), transparency=transparency)
 
     def draw_on_video(self, background_video, max_frames: int = None, blur=False):
@@ -222,7 +220,7 @@ class PoseVisualizer:
             cap = self.cv2.VideoCapture(video_path)
             video_fps = cap.get(self.cv2.CAP_PROP_FPS)
 
-            assert math.isclose(video_fps, self.pose_fps, abs_tol=0.1), \
+            assert math.isclose(video_fps, self.pose_fps, abs_tol=0.5), \
                 "Fps of pose and video do not match: %f != %f" % (self.pose_fps, video_fps)
 
             while True:
@@ -473,8 +471,9 @@ class FastAndUglyPoseVisualizer(PoseVisualizer):
         np.ndarray
             frames with drawn pose
         """
+        int_frames = np.array(np.around(self.pose.body.data.data), dtype="int32")
         background = np.full((self.pose.header.dimensions.height, self.pose.header.dimensions.width),
                              fill_value=background_color,
                              dtype="uint8")
-        for frame in self.pose.body.data:
+        for frame in int_frames:
             yield self._draw_frame(frame, img=background.copy(), color=foreground_color)
