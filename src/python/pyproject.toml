@@ -1,5 +1,5 @@
 [project]
-name = "pose_format"
+name = "dt_pose_format"
 description = "Library for viewing, augmenting, and handling .pose files"
 version = "0.6.1"
 keywords = ["Pose Files", "Pose Interpolation", "Pose Augmentation"]
