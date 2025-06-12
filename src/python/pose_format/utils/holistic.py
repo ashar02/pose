@@ -91,7 +91,7 @@ FLIPPED_BODY_POINTS = [
 ]
 
 
-def component_points(component, width: int, height: int, num: int):
+def component_points(component, width: int, height: int, num: int, pose_world_landmarks=False):
     """
     Gets component points
 
@@ -113,12 +113,15 @@ def component_points(component, width: int, height: int, num: int):
     """
     if component is not None:
         lm = component.landmark
-        return np.array([[p.x * width, p.y * height, p.z] for p in lm]), np.ones(num)
+        if doApplyScaling:
+			return np.array([[p.x, p.y, p.z] for p in lm]), np.ones(num)
+		else:
+            return np.array([[p.x * width, p.y * height, p.z] for p in lm]), np.ones(num)       
 
     return np.zeros((num, 3)), np.zeros(num)
 
 
-def body_points(component, width: int, height: int, num: int):
+def body_points(component, width: int, height: int, num: int, pose_world_landmarks=False):
     """
     gets body points
 
@@ -140,7 +143,10 @@ def body_points(component, width: int, height: int, num: int):
     """
     if component is not None:
         lm = component.landmark
-        return np.array([[p.x * width, p.y * height, p.z] for p in lm]), np.array([p.visibility for p in lm])
+        if pose_world_landmarks:
+			return np.array([[p.x, p.y, p.z] for p in lm]), np.array([p.visibility for p in lm])
+		else:
+            return np.array([[p.x * width, p.y * height, p.z] for p in lm]), np.array([p.visibility for p in lm])            
 
     return np.zeros((num, 3)), np.zeros(num)
 
@@ -152,7 +158,8 @@ def process_holistic(frames: list,
                      kinect=None,
                      progress=False,
                      additional_face_points=0,
-                     additional_holistic_config={}) -> NumPyPoseBody:
+                     additional_holistic_config={},
+                     pose_world_landmarks=False) -> NumPyPoseBody:
     """
     process frames using holistic model from mediapipe
 
@@ -189,12 +196,12 @@ def process_holistic(frames: list,
         for i, frame in enumerate(tqdm(frames, disable=not progress)):
             results = holistic.process(frame)
 
-            body_data, body_confidence = body_points(results.pose_landmarks, w, h, 33)
+            body_data, body_confidence = body_points(results.pose_landmarks, w, h, 33, pose_world_landmarks)
             face_data, face_confidence = component_points(results.face_landmarks, w, h,
-                                                          FACE_POINTS_NUM(additional_face_points))
-            lh_data, lh_confidence = component_points(results.left_hand_landmarks, w, h, 21)
-            rh_data, rh_confidence = component_points(results.right_hand_landmarks, w, h, 21)
-            body_world_data, body_world_confidence = body_points(results.pose_world_landmarks, w, h, 33)
+                                                          FACE_POINTS_NUM(additional_face_points), pose_world_landmarks)
+            lh_data, lh_confidence = component_points(results.left_hand_landmarks, w, h, 21, pose_world_landmarks)
+            rh_data, rh_confidence = component_points(results.right_hand_landmarks, w, h, 21, pose_world_landmarks)
+            body_world_data, body_world_confidence = body_points(results.pose_world_landmarks, w, h, 33, pose_world_landmarks)
 
             data = np.concatenate([body_data, face_data, lh_data, rh_data, body_world_data])
             conf = np.concatenate([body_confidence, face_confidence, lh_confidence, rh_confidence, body_world_confidence])
@@ -284,7 +291,8 @@ def load_holistic(frames: list,
                   depth=0,
                   kinect=None,
                   progress=False,
-                  additional_holistic_config={}) -> Pose:
+                  additional_holistic_config={},
+                  pose_world_landmarks=False) -> Pose:
     """
     Loads holistic pose data
 
@@ -323,7 +331,7 @@ def load_holistic(frames: list,
                                     dimensions=dimensions,
                                     components=holistic_components(pf, additional_face_points))
     body: NumPyPoseBody = process_holistic(frames, fps, width, height, kinect, progress, additional_face_points,
-                                           additional_holistic_config)
+                                           additional_holistic_config, pose_world_landmarks)
 
     return Pose(header, body)
 
