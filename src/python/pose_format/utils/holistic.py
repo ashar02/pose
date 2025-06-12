@@ -113,9 +113,9 @@ def component_points(component, width: int, height: int, num: int, pose_world_la
     """
     if component is not None:
         lm = component.landmark
-        if doApplyScaling:
-			return np.array([[p.x, p.y, p.z] for p in lm]), np.ones(num)
-		else:
+        if pose_world_landmarks:
+            return np.array([[p.x, p.y, p.z] for p in lm]), np.ones(num)
+        else:
             return np.array([[p.x * width, p.y * height, p.z] for p in lm]), np.ones(num)       
 
     return np.zeros((num, 3)), np.zeros(num)
@@ -144,8 +144,8 @@ def body_points(component, width: int, height: int, num: int, pose_world_landmar
     if component is not None:
         lm = component.landmark
         if pose_world_landmarks:
-			return np.array([[p.x, p.y, p.z] for p in lm]), np.array([p.visibility for p in lm])
-		else:
+            return np.array([[p.x, p.y, p.z] for p in lm]), np.array([p.visibility for p in lm])
+        else:
             return np.array([[p.x * width, p.y * height, p.z] for p in lm]), np.array([p.visibility for p in lm])            
 
     return np.zeros((num, 3)), np.zeros(num)
