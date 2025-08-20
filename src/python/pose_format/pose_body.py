@@ -1,7 +1,9 @@
+import math
 from random import sample
-from typing import BinaryIO, List, Tuple
+from typing import BinaryIO, List, Tuple, Optional
 
 import numpy as np
+
 
 from pose_format.pose_header import PoseHeader
 from pose_format.utils.reader import BufferReader, ConstStructs
@@ -59,9 +61,9 @@ class PoseBody:
 
         if header.version == 0:
             return cls.read_v0_0(header, reader, **kwargs)
-        elif round(header.version, 3) == 0.1:
+        if round(header.version, 3) == 0.1:
             return cls.read_v0_1(header, reader, **kwargs)
-        elif round(header.version, 3) == 0.2:
+        if round(header.version, 3) == 0.2:
             return cls.read_v0_2(header, reader, **kwargs)
 
         raise NotImplementedError("Unknown version - %f" % header.version)
@@ -92,8 +94,8 @@ class PoseBody:
                          frames: int,
                          shape: List[int],
                          reader: BufferReader,
-                         start_frame: int = None,
-                         end_frame: int = None):
+                         start_frame: Optional[int] = None,
+                         end_frame: Optional[int] = None):
         """
         Reads frame data for version 0.1 from a buffer.
 
@@ -126,9 +128,9 @@ class PoseBody:
         _frames = frames
         if start_frame is not None and start_frame > 0:
             if start_frame >= frames:
-                raise ValueError("Start frame is greater than the number of frames")
+                raise ValueError(f"Start frame {start_frame} is greater than the number of frames {frames}")
             # Advance to the start frame
-            reader.advance(s, int(np.prod((start_frame, *shape))))
+            reader.skip(s, int(np.prod((start_frame, *shape))))
             _frames -= start_frame
 
         remove_frames = None
@@ -140,7 +142,7 @@ class PoseBody:
         tensor = tensor_reader(ConstStructs.float, shape=(_frames, *shape))
 
         if remove_frames is not None:
-            reader.advance(s, int(np.prod((remove_frames, *shape))))
+            reader.skip(s, int(np.prod((remove_frames, *shape))))
 
         return tensor
 
@@ -148,8 +150,8 @@ class PoseBody:
     def read_v0_1(cls,
                   header: PoseHeader,
                   reader: BufferReader,
-                  start_frame: int = None,
-                  end_frame: int = None,
+                  start_frame: Optional[int] = None,
+                  end_frame: Optional[int] = None,
                   **unused_kwargs) -> "PoseBody":
         """
         Reads pose data for version 0.1 from a buffer.
@@ -175,8 +177,8 @@ class PoseBody:
         fps, _frames = reader.unpack(ConstStructs.double_ushort)
 
         _people = reader.unpack(ConstStructs.ushort)
-        _points = sum([len(c.points) for c in header.components])
-        _dims = max([len(c.format) for c in header.components]) - 1
+        _points = sum(len(c.points) for c in header.components)
+        _dims = header.num_dims()
 
         # _frames is defined as short, which sometimes is not enough! TODO change to int
         _frames = int(reader.bytes_left() / (_people * _points * (_dims + 1) * 4))
@@ -190,8 +192,10 @@ class PoseBody:
     def read_v0_2(cls,
                   header: PoseHeader,
                   reader: BufferReader,
-                  start_frame: int = None,
-                  end_frame: int = None,
+                  start_frame: Optional[int] = None,
+                  end_frame: Optional[int] = None,
+                  start_time: Optional[int] = None,
+                  end_time: Optional[int] = None,
                   **unused_kwargs) -> "PoseBody":
         """
         Reads pose data for version 0.2 from a buffer.
@@ -206,6 +210,10 @@ class PoseBody:
             Index of the first frame to read. Default is None.
         end_frame : int, optional
             Index of the last frame to read. Default is None.
+        start_time : int, optional
+            Start time of the pose data (in milliseconds). Default is None.
+        end_time : int, optional
+            End time of the pose data (in milliseconds). Default is None.
         **unused_kwargs : dict
             Unused additional parameters for this version.
 
@@ -214,12 +222,23 @@ class PoseBody:
         PoseBody
             PoseBody object initialized with the read data for version 0.2.
         """
+
+        if start_time is not None and start_frame is not None:
+            raise ValueError("Cannot specify both start_time and start_frame")
+        if end_time is not None and end_frame is not None:
+            raise ValueError("Cannot specify both end_time and end_frame")
+
         fps = reader.unpack(ConstStructs.float)  # Changed from v0.1, uint -> float
         _frames = reader.unpack(ConstStructs.uint)  # Changed from v0.1, ushort -> uint
 
         _people = reader.unpack(ConstStructs.ushort)
         _points = sum([len(c.points) for c in header.components])
-        _dims = max([len(c.format) for c in header.components]) - 1
+        _dims = header.num_dims()
+
+        if start_time is not None:
+            start_frame = math.floor(start_time / 1000 * fps)
+        if end_time is not None:
+            end_frame = math.ceil(end_time / 1000 * fps)
 
         data = cls.read_v0_1_frames(_frames, (_people, _points, _dims), reader, start_frame, end_frame)
         confidence = cls.read_v0_1_frames(_frames, (_people, _points), reader, start_frame, end_frame)
@@ -238,6 +257,11 @@ class PoseBody:
             Buffer to write the pose data to.
         """
         raise NotImplementedError("'write' not implemented on '%s'" % self.__class__)
+
+    def copy(self) -> "PoseBody":
+        return self.__class__(fps=self.fps,
+                              data=self.data,
+                              confidence=self.confidence)
 
     def __getitem__(self, index):
         """
@@ -288,7 +312,7 @@ class PoseBody:
         Raises
         ------
         NotImplementedError
-            If toch is not implemented.
+            If torch is not implemented.
         """
         raise NotImplementedError("'torch' not implemented on '%s'" % self.__class__)
 
@@ -456,7 +480,7 @@ class PoseBody:
         Returns
         -------
         PoseBody
-            PoseBody instance containing only choosen points.
+            PoseBody instance containing only chosen points.
              
         Raises
         ------
@@ -594,3 +618,50 @@ class PoseBody:
         dropout_percent = np.abs(np.random.normal(loc=dropout_mean, scale=dropout_std, size=1))[0]
 
         return self.frame_dropout_given_percent(dropout_percent)
+
+    def __str__(self):
+        text = f"{self.__class__.__name__}\n"
+        text += f"FPS: {self.fps}\n"
+        text += f"Data: {type(self.data)} {self.data.shape}, {self.data.dtype}\n"
+        text += f"Confidence shape: {type(self.confidence)} {self.confidence.shape}, {self.data.dtype}\n"
+        text += f"Duration (seconds): {len(self.data) / self.fps}\n"
+        return text
+
+    def __len__(self):
+        return len(self.data)
+
+    def duration_in_frames(self, start_time: Optional[int] = None, end_time: Optional[int] = None) -> int:
+        """
+        Returns the number of frames in the PoseBody based on start and end times.
+
+        Parameters
+        ----------
+        start_time : int, optional
+            Start time in milliseconds. Default is None.
+        end_time : int, optional
+            End time in milliseconds. Default is None.
+
+        Returns
+        -------
+        int
+            Number of frames in the PoseBody between the specified start and end times.
+        """
+        start_frame = 0
+        if start_time is not None:
+            start_frame = int(start_time / 1000 * self.fps)
+            assert start_frame >= 0, ValueError(f"Start frame {start_frame} is less than 0")
+            assert start_frame < len(self), f"Start frame {start_frame} is greater than the number of frames {len(self)}"
+
+        end_frame = len(self) - 1
+        if end_time is not None:
+            end_frame = int(end_time / 1000 * self.fps)
+            assert end_frame >= 0, ValueError(f"End frame {end_frame} is less than 0")
+            assert end_frame < len(self), f"End frame {end_frame} is greater than the number of frames {len(self)}"
+            assert start_frame <= end_frame, ValueError(f"Start frame {start_frame} is greater than end frame {end_frame}")
+
+        return end_frame - start_frame + 1
+
+
+
+class EmptyPoseBody(PoseBody):
+    tensor_reader = 'unpack_empty_tensor'  # This returns an empty tensor with the given shape

@@ -24,13 +24,29 @@ More about the header and the body details and their binary specifics can be fou
 ```bash
 pip install pose-format
 ```
+##### Install from Source 
+
+```bash
+git clone https://github.com/sign-language-processing/pose.git
+cd pose/src/python
+pip install -e .
+```
 
 #### 2. Estimating Pose from Video:
 
 ```bash
 video_to_pose --format mediapipe -i example.mp4 -o example.pose
+
 # Or if you have a directory of videos
 videos_to_poses --format mediapipe --directory /path/to/videos
+
+# You can also specify additional arguments
+video_to_pose --format mediapipe -i example.mp4 -o example.pose \
+  --additional-config="model_complexity=2,smooth_landmarks=false,refine_face_landmarks=true"
+
+# Recursively search for videos within a directory, and process them 10 at a time
+videos_to_poses --format mediapipe -num-workers 10 --recursive --directory /path/to/videos 
+
 ```
 
 #### 3. Reading `.pose` Files: 
@@ -88,13 +104,19 @@ Maintaining data consistency is very important and data normalization is one met
 
 For instance, you can set the shoulder width to a consistent measurement across all data points. This is useful for comparing poses across different individuals. 
 
-* See this example for using a standard body feature, such as the shoulder width, for normalization:
+* See this example for manually specifying a standard body feature, such as the shoulder width, for normalization:
 
 ```python
 pose.normalize(p.header.normalization_info(
     p1=("pose_keypoints_2d", "RShoulder"),
     p2=("pose_keypoints_2d", "LShoulder")
 ))
+```
+
+* If normalization info is not specified, normalize() will automatically base normalization on shoulder joints.
+
+```python
+pose.normalize() # same result as above, but attempts to automatically select shoulder points based on format
 ```
 
 * Keypoint values can be standardized to have a mean of zero and unit variance:
@@ -106,7 +128,6 @@ pose.normalize_distribution()
 ```
 
 The usual way to do this is to compute a separate mean and standard deviation for each keypoint and each dimension (usually x and y). This can be achieved with the `axis` argument of `normalize_distribution`. 
-
 
 ```python
 
@@ -217,6 +238,7 @@ Alternatively, use a different testing framework to run tests, such as pytest. T
 * Or employ pytest:
 
 ```bash
+# From src/python directory
 pytest .
 # or for a single file
 pytest pose_format/tensorflow/masked/tensor_test.py

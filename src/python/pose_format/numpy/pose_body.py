@@ -128,6 +128,11 @@ class NumPyPoseBody(PoseBody):
         buffer.write(np.array(self.data.data, dtype=np.float32).tobytes())
         buffer.write(np.array(self.confidence, dtype=np.float32).tobytes())
 
+    def copy(self) -> 'NumPyPoseBody':
+        return type(self)(fps=self.fps,
+                          data=self.data.copy(),
+                          confidence=self.confidence.copy())
+
     @property
     def mask(self):
         """ Returns  mask associated with data. """
@@ -181,8 +186,9 @@ class NumPyPoseBody(PoseBody):
         NumPyPoseBody
             changed pose body data.
         """
-        self.data = ma.array(self.data.filled(0), mask=self.data.mask)
-        return self
+        copy = self.copy()
+        copy.data = ma.array(copy.data.filled(0), mask=copy.data.mask)
+        return copy
 
     def matmul(self, matrix: np.ndarray):
         """
@@ -286,7 +292,7 @@ class NumPyPoseBody(PoseBody):
 
         new_data = ma.transpose(boxes_cat, axes=POINTS_DIMS)
 
-        confidence_mask = np.split(new_data.mask, [-1], axis=3)[0]
+        confidence_mask = np.split(new_data.mask, [-1], axis=3)[-1]
         confidence_mask = np.squeeze(confidence_mask, axis=-1)
         confidence = np.where(confidence_mask == True, 0, 1)
 
@@ -333,7 +339,7 @@ class NumPyPoseBody(PoseBody):
         for people in points:
             new_frames = []
             for frames in people:
-                mask = frames.transpose()[0].mask
+                mask = frames.transpose()[-1].mask # takes mask from confidence value
 
                 partial_steps = ma.array(steps, mask=mask).compressed()
 

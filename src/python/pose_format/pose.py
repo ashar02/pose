@@ -1,16 +1,17 @@
+from io import BytesIO
 from itertools import chain
-from typing import BinaryIO, Dict, List, Tuple, Type
+from typing import BinaryIO, Dict, List, Tuple, Type, Union
 
 import numpy as np
 import numpy.ma as ma
-
 from pose_format.numpy import NumPyPoseBody
-from pose_format.pose_body import PoseBody
+from pose_format.pose_body import PoseBody, EmptyPoseBody
 from pose_format.pose_header import (PoseHeader, PoseHeaderComponent,
                                      PoseHeaderDimensions,
-                                     PoseNormalizationInfo)
+                                     PoseNormalizationInfo, PoseHeaderCache)
 from pose_format.utils.fast_math import distance_batch
-from pose_format.utils.reader import BufferReader
+from pose_format.utils.reader import BufferReader, BytesIOReader
+
 
 
 class Pose:
@@ -30,7 +31,7 @@ class Pose:
         self.body = body
 
     @staticmethod
-    def read(buffer: bytes, pose_body: Type[PoseBody] = NumPyPoseBody, **kwargs):
+    def read(buffer: Union[bytes, BytesIO], pose_body: Type[PoseBody] = NumPyPoseBody, **kwargs):
         """
         Read Pose object from buffer.
 
@@ -46,7 +47,19 @@ class Pose:
         Pose
             Pose object.
         """
-        reader = BufferReader(buffer)
+
+        # Use BytesIO reader optimization only when start/end is specified, otherwise, it is faster to read from buffer
+        if isinstance(buffer, bytes):
+            reader = BufferReader(buffer)
+        else:
+            if (kwargs.get("start_frame", None) or kwargs.get("end_frame", None) or
+                    kwargs.get("start_time", None) or kwargs.get("end_time", None) or
+                    pose_body is EmptyPoseBody):
+                reader = BytesIOReader(buffer)
+            else:
+                reader = BufferReader(buffer.read())
+
+        reader.expect_to_read((PoseHeaderCache.end_offset or 10 * 1024) + 100) # Expect to read the header at least (or 10kb)
         header = PoseHeader.read(reader)
         body = pose_body.read(header, reader, **kwargs)
 
@@ -61,6 +74,17 @@ class Pose:
         buffer : BinaryIO
             buffer
         """
+
+        # Sanity check: The body should have 4 dimensions
+        if len(self.body.data.shape) != 4:
+            raise ValueError(f"Body data should have 4 dimensions, not {len(self.body.data.shape)}")
+
+        # Sanity check: Body should have as many dimensions as header
+        header_dims = self.header.num_dims()
+        body_dims = self.body.data.shape[-1]
+        if header_dims != body_dims:
+            raise ValueError(f"Header has {header_dims} dimensions, but body has {body_dims}")
+
         self.header.write(buffer)
         self.body.write(self.header.version, buffer)
 
@@ -77,7 +101,7 @@ class Pose:
         dimensions = (maxs - mins).tolist()
         self.header.dimensions = PoseHeaderDimensions(*dimensions)
 
-    def normalize(self, info: PoseNormalizationInfo, scale_factor: float = 1) -> "Pose":
+    def normalize(self, info: Union[PoseNormalizationInfo,None]=None, scale_factor: float = 1) -> "Pose":
         """
         Normalize the points to a fixed distance between two particular points.
 
@@ -93,6 +117,10 @@ class Pose:
         Pose
             The normalized Pose object.
         """
+        if info is None:
+            from pose_format.utils.generic import pose_normalization_info
+            info = pose_normalization_info(self.header)
+
         transposed = self.body.points_perspective()
 
         p1s = transposed[info.p1]
@@ -188,8 +216,30 @@ class Pose:
         """
         body, selected_indexes = self.body.frame_dropout_normal(dropout_mean=dropout_mean, dropout_std=dropout_std)
         return Pose(header=self.header, body=body), selected_indexes
+    
+    
+    def remove_components(self, components_to_remove: Union[str, List[str]], points_to_remove: Union[Dict[str, List[str]],None] = None):
+        
+        if isinstance(components_to_remove, str):
+            components_to_remove = [components_to_remove]
 
-    def get_components(self, components: List[str], points: Dict[str, List[str]] = None):
+        components_to_keep = []
+        points_dict = {}
+
+        for component in self.header.components:
+            if component.name not in components_to_remove:
+                components_to_keep.append(component.name)
+                if points_to_remove:
+                    points_to_remove_list = points_to_remove.get(component.name, []) 
+                    points_dict[component.name] = [point for point in component.points if point not in points_to_remove_list]
+                else:
+                    points_dict[component.name] = component.points[:]
+
+        return self.get_components(components_to_keep, points_dict)
+        
+    
+
+    def get_components(self, components: List[str], points: Union[Dict[str, List[str]],None] = None):
         """
         get pose components based on criteria.
 
@@ -239,6 +289,10 @@ class Pose:
         new_body = self.body.get_points(flat_indexes)
 
         return Pose(header=new_header, body=new_body)
+    
+
+    def copy(self):
+        return self.__class__(self.header, self.body.copy())
 
     def bbox(self):
         """
@@ -318,3 +372,6 @@ A set of method names which define actions that can be applied to the pose data.
             return body_res
 
         return func
+
+    def __str__(self):
+        return f"Pose\n{self.header}\n{self.body}"
