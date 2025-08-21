@@ -2,14 +2,15 @@
 import {Component, Element, Event, EventEmitter, h, Host, Method, Prop, State, Watch} from '@stencil/core';
 import type {PoseModel} from "dt-pose-format/dist/types";
 import {Pose} from "dt-pose-format/dist";
+import type {Buffer} from "buffer";
 // import {Pose, PoseModel} from "../../../../pose_format/dist";
 import {PoseRenderer} from "./renderers/pose-renderer";
 import {SVGPoseRenderer} from "./renderers/svg.pose-renderer";
 import {CanvasPoseRenderer} from "./renderers/canvas.pose-renderer";
+import {InteractivePoseRenderer} from "./renderers/interactive.pose-renderer";
 
 declare type ResizeObserver = any;
 declare var ResizeObserver: ResizeObserver;
-
 
 @Component({
   tag: 'pose-viewer',
@@ -21,9 +22,9 @@ export class PoseViewer {
   private resizeObserver: ResizeObserver;
   private fetchAbortController: AbortController;
 
-  private lastSrc: string;
-  @Prop() src: string; // Source URL for .pose file
-  @Prop() svg: boolean = false; // Render in an SVG instead of a canvas
+  private lastSrc: string | Buffer;
+  @Prop() src: string | Buffer; // Source URL for .pose file or path to a local file or Buffer
+  @Prop() renderer: 'canvas' | 'svg' | 'interactive' = 'canvas'; // Render in an SVG instead of a canvas
 
   // Dimensions
   @Prop() width: string = null;
@@ -68,7 +69,7 @@ export class PoseViewer {
 
   hasRendered = false;
 
-  renderer!: PoseRenderer;
+  rendererInstance!: PoseRenderer;
 
   media: HTMLMediaElement;
   pose: PoseModel;
@@ -80,7 +81,19 @@ export class PoseViewer {
   private loopInterval: any;
 
   componentWillLoad() {
-    this.renderer = this.svg ? new SVGPoseRenderer(this) : new CanvasPoseRenderer(this);
+    switch (this.renderer) {
+      case 'canvas':
+        this.rendererInstance = new CanvasPoseRenderer(this);
+        break;
+      case 'svg':
+        this.rendererInstance = new SVGPoseRenderer(this);
+        break;
+      case 'interactive':
+        this.rendererInstance = new InteractivePoseRenderer(this);
+        break;
+      default:
+        throw new Error('Invalid renderer');
+    }
 
     return this.srcChange();
   }
@@ -90,19 +103,32 @@ export class PoseViewer {
     this.resizeObserver.observe(this.element);
   }
 
-  private async getRemotePose() {
-    // Abort previous request
+  private async loadPose() {
+    // Abort previous request if it exists
     if (this.fetchAbortController) {
       this.fetchAbortController.abort();
     }
 
-    this.fetchAbortController = new AbortController();
-    const result = await Pose.fromRemote(this.src, this.fetchAbortController);
-    if (result instanceof Pose) {
-      this.pose = result;
+    if(typeof this.src === 'string') {
+      const isRemoteUrl = this.src.startsWith('http') || this.src.startsWith('//');
+      const isBrowserEnvironment = typeof window !== 'undefined';
+
+      if (isRemoteUrl || isBrowserEnvironment) {
+        // Remote URL or Browser environment
+        this.fetchAbortController = new AbortController();
+        const result = await Pose.fromRemote(this.src, this.fetchAbortController);
+        if (result instanceof Pose) {
+          this.pose = result;
+        } else {
+          this.buffer = result;
+          this.createVideoBlob();
+        }
+      } else {
+        // Local environment
+        this.pose = await Pose.fromLocal(this.src);
+      }
     } else {
-      this.buffer = result;
-      this.createVideoBlob();
+      this.pose = Pose.from(this.src);
     }
   }
 
@@ -156,7 +182,7 @@ export class PoseViewer {
 
     this.error = null;
     try {
-      await this.getRemotePose();
+      await this.loadPose();
       this.initPose();
       this.error = null;
     } catch (e) {
@@ -333,7 +359,7 @@ export class PoseViewer {
       return;
     }
 
-    if (!this.pose || isNaN(this.currentTime) || !this.renderer) {
+    if (!this.pose || isNaN(this.currentTime) || !this.rendererInstance) {
       return "";
     }
 
@@ -341,8 +367,9 @@ export class PoseViewer {
 
     const frameId = Math.floor(currentTime * this.pose.body.fps);
     const frame = this.pose.body.frames[frameId];
+    console.log(frame);
 
-    const render = this.renderer.render(frame);
+    const render = this.rendererInstance.render(frame);
     if (!this.hasRendered) {
       requestAnimationFrame(() => {
         this.hasRendered = true;

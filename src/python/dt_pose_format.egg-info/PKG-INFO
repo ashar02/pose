@@ -1,0 +1,30 @@
+Metadata-Version: 2.4
+Name: dt_pose_format
+Version: 0.7.0
+Summary: Library for viewing, augmenting, and handling .pose files
+Author-email: Amit Moryossef <amitmoryossef@gmail.com>, Mathias Müller <anon1@ymous.com>, Rebecka Fahrni <anon2@ymous.com>
+Keywords: Pose Files,Pose Interpolation,Pose Augmentation
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: numpy
+Requires-Dist: scipy
+Requires-Dist: tqdm
+Provides-Extra: dev
+Requires-Dist: pylint; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: opencv-python==4.5.5.64; extra == "dev"
+Requires-Dist: vidgear; extra == "dev"
+Requires-Dist: mediapipe; extra == "dev"
+Requires-Dist: torch; extra == "dev"
+Requires-Dist: tensorflow; extra == "dev"
+Requires-Dist: matplotlib; extra == "dev"
+
+# Pose Format
+
+## Publishing
+```bash
+pip3 install --upgrade build twine pyopenssl cryptography requests-toolbelt
+rm -rf dist
+python3 -m build
+python3 -m twine upload dist/*
+```
