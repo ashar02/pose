@@ -30,7 +30,7 @@
 ## Events
 
 | Event             | Description | Type                  |
-| ----------------- | ----------- | -------------------   |
+| ----------------- | ----------- | --------------------- |
 | `blobCreated$`    |             | `CustomEvent<string>` |
 | `canplaythrough$` |             | `CustomEvent<void>`   |
 | `ended$`          |             | `CustomEvent<void>`   |

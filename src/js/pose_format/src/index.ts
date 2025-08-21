@@ -19,7 +19,7 @@ export class Pose {
     return Pose.from(buffer);
   }
 
-  static async fromRemote(url: string, abortController?: AbortController) {
+  static async fromRemote(url: string, abortController?: AbortController): Promise<Buffer | Pose> {
     const init: RequestInit = {};
     if (abortController) {
       init.signal = abortController.signal;

@@ -25,7 +25,7 @@
   },
   "dependencies": {
     "@stencil/core": "4.26.0",
-    "dt-pose-format": "1.6.0",
+    "dt-pose-format": "1.6.2",
     "three": "0.173.0"
   },
   "license": "MIT",

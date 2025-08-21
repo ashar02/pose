@@ -5,9 +5,7 @@
  * It contains typing information for all components that exist in this project.
  */
 import { HTMLStencilElement, JSXBase } from "@stencil/core/internal";
-import { Buffer } from "buffer";
 import { PoseModel } from "dt-pose-format/dist/types";
-export { Buffer } from "buffer";
 export { PoseModel } from "dt-pose-format/dist/types";
 export namespace Components {
     interface PoseViewer {
@@ -49,6 +47,8 @@ declare global {
         "play$": void;
         "firstRender$": void;
         "render$": void;
+        "blobCreated$": string;
+        "poseError$": any;
     }
     interface HTMLPoseViewerElement extends Components.PoseViewer, HTMLStencilElement {
         addEventListener<K extends keyof HTMLPoseViewerElementEventMap>(type: K, listener: (this: HTMLPoseViewerElement, ev: PoseViewerCustomEvent<HTMLPoseViewerElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
