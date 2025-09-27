@@ -1,6 +1,6 @@
 {
   "name": "dt-pose-viewer",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "description": "Stencil Component Starter",
   "homepage": "https://github.com/ashar02/pose.git",
   "main": "dist/index.cjs.js",
