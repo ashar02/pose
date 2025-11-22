@@ -78,7 +78,7 @@ export class PoseViewer {
   @State() error: Error;
   @State() videoBlobUrl: string = null;
 
-  private loopInterval: any;
+  private animationRequestId: number;
 
   componentWillLoad() {
     switch (this.renderer) {
@@ -166,7 +166,7 @@ export class PoseViewer {
     this.lastSrc = this.src;
 
     // Clear previous pose
-    this.clearInterval();
+    this.cancelLoop();
     this.setDimensions();
     delete this.pose;
     this.currentTime = NaN;
@@ -258,7 +258,7 @@ export class PoseViewer {
     updateRate();
 
     // Start the pose according to the video
-    this.clearInterval();
+    this.cancelLoop();
     if (this.media.paused) {
       this.pause();
     } else {
@@ -297,7 +297,7 @@ export class PoseViewer {
   @Method()
   async play() {
     if (!this.paused) {
-      this.clearInterval();
+      this.cancelLoop();
     }
 
     this.paused = false;
@@ -308,45 +308,53 @@ export class PoseViewer {
       this.currentTime = 0;
     }
 
-    const intervalTime = 1000 / (this.pose.body.fps * this.playbackRate);
-    if (this.media) {
-      this.loopInterval = setInterval(() => this.currentTime = this.frameTime(this.media.currentTime), intervalTime);
-    } else {
-      // Add the time passed in an interval.
-      let lastTime = Date.now() / 1000;
-      this.loopInterval = setInterval(() => {
-        const now = Date.now() / 1000;
-        this.currentTime += (now - lastTime) * this.playbackRate;
-        lastTime = now;
+    let lastTime = performance.now();
+
+    const loop = (time: number) => {
+      if (this.paused) return;
+
+      this.animationRequestId = requestAnimationFrame(loop);
+
+      if (this.media) {
+        this.currentTime = this.frameTime(this.media.currentTime);
+      } else {
+        const deltaTime = (time - lastTime) / 1000;
+        lastTime = time;
+
+        this.currentTime += deltaTime * this.playbackRate;
+
         if (this.currentTime > this.duration) {
           if (this.loop) {
-            this.currentTime = this.currentTime % this.duration;
+            this.currentTime %= this.duration;
           } else {
+            this.currentTime = this.duration;
             this.ended$.emit();
             this.ended = true;
-
-            this.clearInterval();
+            this.pause();
           }
         }
-      }, intervalTime);
-    }
+      }
+    };
+
+    this.animationRequestId = requestAnimationFrame(loop);
   }
 
   @Method()
   async pause() {
     this.paused = true;
     this.pause$.emit();
-    this.clearInterval();
+    this.cancelLoop();
   }
 
-  clearInterval() {
-    if (this.loopInterval) {
-      clearInterval(this.loopInterval);
+  cancelLoop() {
+    if (this.animationRequestId) {
+      cancelAnimationFrame(this.animationRequestId);
+      this.animationRequestId = 0;
     }
   }
 
   disconnectedCallback() {
-    this.clearInterval();
+    this.cancelLoop();
   }
 
   render() {
