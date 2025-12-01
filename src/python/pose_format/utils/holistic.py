@@ -14,6 +14,34 @@ except ImportError:
 
 mp_holistic = mp.solutions.holistic
 
+try:
+    from mediapipe.tasks import python as mp_tasks
+    from mediapipe.tasks.python import vision
+    from mediapipe import Image, ImageFormat
+    FACE_LANDMARKER_AVAILABLE = True
+except ImportError:
+    FACE_LANDMARKER_AVAILABLE = False
+    mp_tasks = None
+    vision = None
+    Image = None
+    ImageFormat = None
+    Image = None
+    ImageFormat = None
+
+FACE_BLEND_SHAPES_NUM = 52
+FACE_BLEND_SHAPES_NAMES = [
+    '_neutral', '_eyeBlinkLeft', '_eyeLookDownLeft', '_eyeLookInLeft', '_eyeLookOutLeft',
+    '_eyeLookUpLeft', '_eyeSquintLeft', '_eyeWideLeft', '_eyeBlinkRight', '_eyeLookDownRight',
+    '_eyeLookInRight', '_eyeLookOutRight', '_eyeLookUpRight', '_eyeSquintRight', '_eyeWideRight',
+    '_jawForward', '_jawLeft', '_jawOpen', '_jawRight', '_mouthClose', '_mouthFunnel',
+    '_mouthPucker', '_mouthLeft', '_mouthRight', '_mouthRollLower', '_mouthRollUpper',
+    '_mouthShrugLower', '_mouthShrugUpper', '_mouthPressLeft', '_mouthPressRight',
+    '_mouthLowerDownLeft', '_mouthLowerDownRight', '_mouthUpperUpLeft', '_mouthUpperUpRight',
+    '_browDownLeft', '_browDownRight', '_browInnerUp', '_browOuterUpLeft', '_browOuterUpRight',
+    '_cheekPuff', '_cheekSquintLeft', '_cheekSquintRight', '_noseSneerLeft', '_noseSneerRight',
+    '_tongueOut'
+]
+
 FACEMESH_CONTOURS_POINTS = [
     str(p) for p in sorted(set([p for p_tup in list(mp_holistic.FACEMESH_CONTOURS) for p in p_tup]))
 ]
@@ -153,6 +181,46 @@ def body_points(component, width: int, height: int, num: int, pose_world_landmar
     return np.zeros((num, 3)), np.zeros(num)
 
 
+def blend_shapes_points(blend_shapes, num: int):
+    """
+    Gets face blend shapes values
+
+    Parameters
+    ----------
+    blend_shapes : list
+        List of blend shape objects from MediaPipe
+    num : int
+        Number of blend shapes
+
+    Returns
+    -------
+    tuple of np.array
+        Blend shape values (as 3D points with value in z) and confidence for each blend shape
+    """
+    if blend_shapes is not None and len(blend_shapes) > 0:
+        # Extract blend shape values
+        # Create a mapping from category name to index for faster lookup
+        name_to_idx = {name: idx for idx, name in enumerate(FACE_BLEND_SHAPES_NAMES)}
+        values = np.zeros(num)
+        
+        for bs in blend_shapes:
+            # Get the category name and find its index
+            category_name = bs.category_name if hasattr(bs, 'category_name') else str(bs)
+            if category_name in name_to_idx:
+                idx = name_to_idx[category_name]
+                score = bs.score if hasattr(bs, 'score') else float(bs)
+                values[idx] = score
+        
+        # Store as 3D points: (0, 0, value) format to match XYZC format
+        # We use z coordinate to store the blend shape value
+        blend_data = np.array([[0.0, 0.0, val] for val in values])
+        # Confidence is the blend shape value itself (normalized)
+        blend_confidence = values
+        return blend_data, blend_confidence
+
+    return np.zeros((num, 3)), np.zeros(num)
+
+
 def process_holistic(frames: list,
                      fps: float,
                      w: int,
@@ -161,7 +229,9 @@ def process_holistic(frames: list,
                      progress=False,
                      additional_face_points=0,
                      additional_holistic_config={},
-                     pose_world_landmarks=False) -> NumPyPoseBody:
+                     pose_world_landmarks=False,
+                     include_face_blend_shapes=False,
+                     face_landmarker_model_path=None) -> NumPyPoseBody:
     """
     process frames using holistic model from mediapipe
 
@@ -183,6 +253,10 @@ def process_holistic(frames: list,
         Additional face landmarks (points)
     additional_holistic_config : dict, optional
         Additional configurations for holistic model
+    include_face_blend_shapes : bool, optional
+        If True, extract face blend shapes using Face Landmarker API
+    face_landmarker_model_path : str, optional
+        Path to face_landmarker.task model file. Required if include_face_blend_shapes is True.
 
     Returns
     -------
@@ -192,6 +266,24 @@ def process_holistic(frames: list,
     if 'static_image_mode' not in additional_holistic_config:
         additional_holistic_config['static_image_mode'] = False
     holistic = mp_holistic.Holistic(**additional_holistic_config)
+
+    # Initialize Face Landmarker if blend shapes are requested
+    face_landmarker = None
+    if include_face_blend_shapes:
+        if not FACE_LANDMARKER_AVAILABLE:
+            raise ImportError("Face Landmarker API not available. Please install mediapipe with: pip install mediapipe")
+        if face_landmarker_model_path is None:
+            raise ValueError("face_landmarker_model_path is required when include_face_blend_shapes=True")
+        
+        base_options = mp_tasks.BaseOptions(model_asset_path=face_landmarker_model_path)
+        options = vision.FaceLandmarkerOptions(
+            base_options=base_options,
+            output_face_blendshapes=True,
+            output_facial_transformation_matrixes=False,
+            running_mode=vision.RunningMode.VIDEO,
+            num_faces=1
+        )
+        face_landmarker = vision.FaceLandmarker.create_from_options(options)
 
     try:
         datas = []
@@ -207,8 +299,40 @@ def process_holistic(frames: list,
             rh_data, rh_confidence = component_points(results.right_hand_landmarks, w, h, 21, pose_world_landmarks)
             body_world_data, body_world_confidence = body_points(results.pose_world_landmarks, w, h, 33, pose_world_landmarks)
 
-            data = np.concatenate([body_data, face_data, lh_data, rh_data, body_world_data])
-            conf = np.concatenate([body_confidence, face_confidence, lh_confidence, rh_confidence, body_world_confidence])
+            # Extract blend shapes if requested
+            blend_shapes_data = None
+            blend_shapes_confidence = None
+            if include_face_blend_shapes and face_landmarker is not None:
+                # Convert frame to MediaPipe Image format
+                # Ensure frame is RGB (numpy array)
+                import cv2
+                if len(frame.shape) == 3:
+                    # Convert BGR to RGB if needed (OpenCV uses BGR by default)
+                    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                else:
+                    rgb_frame = frame
+                
+                # Create MediaPipe Image (Image is from main mediapipe module, not vision)
+                mp_image = Image(image_format=ImageFormat.SRGB, data=rgb_frame)
+                
+                # Process with Face Landmarker
+                # Convert frame index to timestamp in milliseconds
+                timestamp_ms = int(i * 1000 / fps) if fps > 0 else i
+                face_result = face_landmarker.detect_for_video(mp_image, timestamp_ms)
+                if face_result.face_blendshapes and len(face_result.face_blendshapes) > 0:
+                    blend_shapes_data, blend_shapes_confidence = blend_shapes_points(
+                        face_result.face_blendshapes[0], FACE_BLEND_SHAPES_NUM
+                    )
+                else:
+                    blend_shapes_data, blend_shapes_confidence = blend_shapes_points(None, FACE_BLEND_SHAPES_NUM)
+
+            # Concatenate data
+            if include_face_blend_shapes and blend_shapes_data is not None:
+                data = np.concatenate([body_data, face_data, lh_data, rh_data, body_world_data, blend_shapes_data])
+                conf = np.concatenate([body_confidence, face_confidence, lh_confidence, rh_confidence, body_world_confidence, blend_shapes_confidence])
+            else:
+                data = np.concatenate([body_data, face_data, lh_data, rh_data, body_world_data])
+                conf = np.concatenate([body_confidence, face_confidence, lh_confidence, rh_confidence, body_world_confidence])
 
             if kinect is not None:
                 kinect_depth = []
@@ -230,6 +354,8 @@ def process_holistic(frames: list,
         return NumPyPoseBody(data=pose_body_data, confidence=pose_body_conf, fps=fps)
     finally:
         holistic.close()
+        if face_landmarker is not None:
+            face_landmarker.close()
 
 
 def holistic_hand_component(name, pf="XYZC") -> PoseHeaderComponent:
@@ -251,7 +377,7 @@ def holistic_hand_component(name, pf="XYZC") -> PoseHeaderComponent:
     return PoseHeaderComponent(name=name, points=HAND_POINTS, limbs=HAND_LIMBS, colors=hand_colors, point_format=pf)
 
 
-def holistic_components(pf="XYZC", additional_face_points=0):
+def holistic_components(pf="XYZC", additional_face_points=0, include_face_blend_shapes=False):
     """
     Creates list of holistic components
 
@@ -261,6 +387,8 @@ def holistic_components(pf="XYZC", additional_face_points=0):
         Point format
     additional_face_points : int, optional
         Additional face points/landmarks
+    include_face_blend_shapes : bool, optional
+        If True, include FACE_BLEND_SHAPES component
 
     Returns
     -------
@@ -271,7 +399,7 @@ def holistic_components(pf="XYZC", additional_face_points=0):
     if additional_face_points > 0:
         face_limbs += FACE_IRISES
 
-    return [
+    components = [
         PoseHeaderComponent(name="POSE_LANDMARKS",
                             points=BODY_POINTS,
                             limbs=BODY_LIMBS,
@@ -290,6 +418,18 @@ def holistic_components(pf="XYZC", additional_face_points=0):
                             colors=[(255, 0, 0)],
                             point_format=pf),
     ]
+    
+    # Add face blend shapes component if requested
+    if include_face_blend_shapes:
+        components.append(
+            PoseHeaderComponent(name="FACE_BLEND_SHAPES",
+                                points=FACE_BLEND_SHAPES_NAMES,
+                                limbs=[],  # Blend shapes don't have limbs
+                                colors=[(200, 100, 0)],  # Orange color for blend shapes
+                                point_format=pf)
+        )
+    
+    return components
 
 
 def load_holistic(frames: list,
@@ -300,7 +440,9 @@ def load_holistic(frames: list,
                   kinect=None,
                   progress=False,
                   additional_holistic_config={},
-                  pose_world_landmarks=False) -> Pose:
+                  pose_world_landmarks=False,
+                  include_face_blend_shapes=False,
+                  face_landmarker_model_path=None) -> Pose:
     """
     Loads holistic pose data
 
@@ -322,6 +464,11 @@ def load_holistic(frames: list,
         If True, show the progress bar.
     additional_holistic_config : dict, optional
         Additional configurations for the holistic model.
+    include_face_blend_shapes : bool, optional
+        If True, extract and include face blend shapes in the pose data.
+    face_landmarker_model_path : str, optional
+        Path to face_landmarker.task model file. Required if include_face_blend_shapes is True.
+        Can be downloaded from: https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker
 
     Returns
     -------
@@ -337,14 +484,15 @@ def load_holistic(frames: list,
     additional_face_points = 10 if refine_face_landmarks else 0
     header: PoseHeader = PoseHeader(version=0.2,
                                     dimensions=dimensions,
-                                    components=holistic_components(pf, additional_face_points))
+                                    components=holistic_components(pf, additional_face_points, include_face_blend_shapes))
     body: NumPyPoseBody = process_holistic(frames, fps, width, height, kinect, progress, additional_face_points,
-                                           additional_holistic_config, pose_world_landmarks)
+                                           additional_holistic_config, pose_world_landmarks,
+                                           include_face_blend_shapes, face_landmarker_model_path)
 
     return Pose(header, body)
 
 
-def formatted_holistic_pose(width: int, height: int, additional_face_points: int = 0):
+def formatted_holistic_pose(width: int, height: int, additional_face_points: int = 0, include_face_blend_shapes: bool = False):
     """
     Formatted holistic pose
 
@@ -356,6 +504,8 @@ def formatted_holistic_pose(width: int, height: int, additional_face_points: int
         Pose height.
     additional_face_points : int, optional
         Additional face points/landmarks.
+    include_face_blend_shapes : bool, optional
+        If True, include FACE_BLEND_SHAPES in the returned components.
 
     Returns
     -------
@@ -365,13 +515,19 @@ def formatted_holistic_pose(width: int, height: int, additional_face_points: int
     dimensions = PoseHeaderDimensions(width=width, height=height, depth=1000)
     header = PoseHeader(version=0.2,
                         dimensions=dimensions,
-                        components=holistic_components("XYZC", additional_face_points))
+                        components=holistic_components("XYZC", additional_face_points, include_face_blend_shapes))
     body = NumPyPoseBody(
         fps=0,  # to be overridden later
         data=np.zeros(shape=(1, 1, header.total_points(), 3)),
         confidence=np.zeros(shape=(1, 1, header.total_points())))
     pose = Pose(header, body)
-    return pose.get_components(["POSE_LANDMARKS", "FACE_LANDMARKS", "LEFT_HAND_LANDMARKS", "RIGHT_HAND_LANDMARKS"],
+    
+    # Build component list dynamically to include FACE_BLEND_SHAPES if present
+    components_to_get = ["POSE_LANDMARKS", "FACE_LANDMARKS", "LEFT_HAND_LANDMARKS", "RIGHT_HAND_LANDMARKS"]
+    if include_face_blend_shapes:
+        components_to_get.append("FACE_BLEND_SHAPES")
+    
+    return pose.get_components(components_to_get,
                                {"FACE_LANDMARKS": FACEMESH_CONTOURS_POINTS})
 
 

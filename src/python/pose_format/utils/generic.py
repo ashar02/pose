@@ -315,5 +315,6 @@ def reduce_holistic(pose: Pose) -> Pose:
     body_component = [c for c in pose.header.components if c.name == "POSE_LANDMARKS"][0]
     body_no_face_no_hands = [p for p in body_component.points if all([i not in p for i in ignore_names])]
 
+    # Get all components except POSE_WORLD_LANDMARKS, but preserve FACE_BLEND_SHAPES if it exists
     components = [c.name for c in pose.header.components if c.name != "POSE_WORLD_LANDMARKS"]
     return pose.get_components(components, {"FACE_LANDMARKS": face_contours, "POSE_LANDMARKS": body_no_face_no_hands})

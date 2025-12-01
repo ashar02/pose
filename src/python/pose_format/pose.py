@@ -253,7 +253,7 @@ class Pose:
         Returns
         -------
         Pose
-            Pose object containing new components
+            Pose object containing new components. Only returns components that exist in the pose.
         """
         indexes = {}
         new_components = {}
@@ -281,8 +281,10 @@ class Pose:
 
             idx += len(component.points)
 
-        new_components_order = [new_components[c] for c in components]
-        indexes_order = [indexes[c] for c in components]
+        # Only include components that actually exist in the pose
+        existing_components = [c for c in components if c in new_components]
+        new_components_order = [new_components[c] for c in existing_components]
+        indexes_order = [indexes[c] for c in existing_components]
 
         new_header = PoseHeader(self.header.version, self.header.dimensions, new_components_order)
         flat_indexes = list(chain.from_iterable(indexes_order))
