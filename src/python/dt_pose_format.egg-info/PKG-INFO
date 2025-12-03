@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dt_pose_format
-Version: 0.7.0
+Version: 0.7.2
 Summary: Library for viewing, augmenting, and handling .pose files
 Author-email: Amit Moryossef <amitmoryossef@gmail.com>, Mathias Müller <anon1@ymous.com>, Rebecka Fahrni <anon2@ymous.com>
 Keywords: Pose Files,Pose Interpolation,Pose Augmentation

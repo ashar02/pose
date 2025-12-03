@@ -190,35 +190,40 @@ def blend_shapes_points(blend_shapes, num: int):
     blend_shapes : list
         List of blend shape objects from MediaPipe
     num : int
-        Number of blend shapes
+        Number of blend shapes (should be 52)
 
     Returns
     -------
     tuple of np.array
         Blend shape values (as 3D points with value in z) and confidence for each blend shape
+    
+    Notes
+    -----
+    Extracts blend shapes in the order they appear from MediaPipe's Face Landmarker.
+    Values are stored exactly as returned by the model without any modification.
     """
     if blend_shapes is not None and len(blend_shapes) > 0:
-        # Extract blend shape values
-        # Create a mapping from category name to index for faster lookup
-        name_to_idx = {name: idx for idx, name in enumerate(FACE_BLEND_SHAPES_NAMES)}
-        values = np.zeros(num)
+        # MediaPipe returns blend shapes in a specific order
+        # Store values exactly as returned by the model without modification
+        values = np.zeros(num, dtype=np.float32)
         
-        for bs in blend_shapes:
-            # Get the category name and find its index
-            category_name = bs.category_name if hasattr(bs, 'category_name') else str(bs)
-            if category_name in name_to_idx:
-                idx = name_to_idx[category_name]
-                score = bs.score if hasattr(bs, 'score') else float(bs)
-                values[idx] = score
+        # Extract values in the order they appear in the MediaPipe result
+        for i, bs in enumerate(blend_shapes):
+            if i >= num:
+                break
+            score = bs.score if hasattr(bs, 'score') else float(bs)
+            # Store the exact value from the model without clamping or modification
+            values[i] = score
         
         # Store as 3D points: (0, 0, value) format to match XYZC format
         # We use z coordinate to store the blend shape value
-        blend_data = np.array([[0.0, 0.0, val] for val in values])
-        # Confidence is the blend shape value itself (normalized)
-        blend_confidence = values
+        blend_data = np.array([[0.0, 0.0, float(val)] for val in values], dtype=np.float32)
+        # Confidence is set to 1.0 for all blend shapes (they're always present)
+        # The actual blend shape value is in the z coordinate
+        blend_confidence = np.ones(num, dtype=np.float32)
         return blend_data, blend_confidence
 
-    return np.zeros((num, 3)), np.zeros(num)
+    return np.zeros((num, 3), dtype=np.float32), np.zeros(num, dtype=np.float32)
 
 
 def process_holistic(frames: list,
