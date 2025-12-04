@@ -280,7 +280,12 @@ def process_holistic(frames: list,
         if face_landmarker_model_path is None:
             raise ValueError("face_landmarker_model_path is required when include_face_blend_shapes=True")
         
-        base_options = mp_tasks.BaseOptions(model_asset_path=face_landmarker_model_path)
+        # load the model file from path to a buffer
+        # have to buffer read due to following issue: https://github.com/google-ai-edge/mediapipe/issues/4983
+        with open(face_landmarker_model_path, 'rb') as file:
+            model_data = file.read()
+            base_options = mp_tasks.BaseOptions(model_asset_buffer=model_data)
+        
         options = vision.FaceLandmarkerOptions(
             base_options=base_options,
             output_face_blendshapes=True,
