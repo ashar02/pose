@@ -30,16 +30,58 @@ except ImportError:
 
 FACE_BLEND_SHAPES_NUM = 52
 FACE_BLEND_SHAPES_NAMES = [
-    '_neutral', '_eyeBlinkLeft', '_eyeLookDownLeft', '_eyeLookInLeft', '_eyeLookOutLeft',
-    '_eyeLookUpLeft', '_eyeSquintLeft', '_eyeWideLeft', '_eyeBlinkRight', '_eyeLookDownRight',
-    '_eyeLookInRight', '_eyeLookOutRight', '_eyeLookUpRight', '_eyeSquintRight', '_eyeWideRight',
-    '_jawForward', '_jawLeft', '_jawOpen', '_jawRight', '_mouthClose', '_mouthFunnel',
-    '_mouthPucker', '_mouthLeft', '_mouthRight', '_mouthRollLower', '_mouthRollUpper',
-    '_mouthShrugLower', '_mouthShrugUpper', '_mouthPressLeft', '_mouthPressRight',
-    '_mouthLowerDownLeft', '_mouthLowerDownRight', '_mouthUpperUpLeft', '_mouthUpperUpRight',
-    '_browDownLeft', '_browDownRight', '_browInnerUp', '_browOuterUpLeft', '_browOuterUpRight',
-    '_cheekPuff', '_cheekSquintLeft', '_cheekSquintRight', '_noseSneerLeft', '_noseSneerRight',
-    '_tongueOut'
+    '_neutral',                # 0
+    '_browDownLeft',           # 1
+    '_browDownRight',          # 2
+    '_browInnerUp',            # 3
+    '_browOuterUpLeft',        # 4
+    '_browOuterUpRight',       # 5
+    '_cheekPuff',              # 6
+    '_cheekSquintLeft',        # 7
+    '_cheekSquintRight',       # 8
+    '_eyeBlinkLeft',           # 9
+    '_eyeBlinkRight',          # 10
+    '_eyeLookDownLeft',        # 11
+    '_eyeLookDownRight',       # 12
+    '_eyeLookInLeft',          # 13
+    '_eyeLookInRight',         # 14
+    '_eyeLookOutLeft',         # 15
+    '_eyeLookOutRight',        # 16
+    '_eyeLookUpLeft',          # 17
+    '_eyeLookUpRight',         # 18
+    '_eyeSquintLeft',          # 19
+    '_eyeSquintRight',         # 20
+    '_eyeWideLeft',            # 21
+    '_eyeWideRight',           # 22
+    '_jawForward',             # 23
+    '_jawLeft',                # 24
+    '_jawOpen',                # 25
+    '_jawRight',               # 26
+    '_mouthClose',             # 27
+    '_mouthDimpleLeft',        # 28
+    '_mouthDimpleRight',       # 29
+    '_mouthFrownLeft',         # 30
+    '_mouthFrownRight',        # 31
+    '_mouthFunnel',            # 32
+    '_mouthLeft',              # 33
+    '_mouthLowerDownLeft',     # 34
+    '_mouthLowerDownRight',    # 35
+    '_mouthPressLeft',         # 36
+    '_mouthPressRight',        # 37
+    '_mouthPucker',            # 38
+    '_mouthRight',             # 39
+    '_mouthRollLower',         # 40
+    '_mouthRollUpper',         # 41
+    '_mouthShrugLower',        # 42
+    '_mouthShrugUpper',        # 43
+    '_mouthSmileLeft',         # 44
+    '_mouthSmileRight',        # 45
+    '_mouthStretchLeft',       # 46
+    '_mouthStretchRight',      # 47
+    '_mouthUpperUpLeft',       # 48
+    '_mouthUpperUpRight',      # 49
+    '_noseSneerLeft',          # 50
+    '_noseSneerRight'          # 51
 ]
 
 FACEMESH_CONTOURS_POINTS = [
