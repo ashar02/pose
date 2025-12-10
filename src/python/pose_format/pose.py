@@ -116,11 +116,6 @@ class Pose:
         -------
         Pose
             The normalized Pose object.
-        
-        Notes
-        -----
-        FACE_BLEND_SHAPES component is excluded from normalization as blend shape values
-        should remain in their original range (typically 0.0 to 1.0).
         """
         if info is None:
             from pose_format.utils.generic import pose_normalization_info
@@ -134,21 +129,6 @@ class Pose:
         # Move all points so center is (0,0)
         center = ((p2s + p1s) / 2).mean(axis=(0, 1))
 
-        # Find indices of FACE_BLEND_SHAPES component to exclude from normalization
-        blend_shapes_indices = []
-        point_idx = 0
-        for component in self.header.components:
-            if component.name == "FACE_BLEND_SHAPES":
-                blend_shapes_indices = list(range(point_idx, point_idx + len(component.points)))
-                break
-            point_idx += len(component.points)
-
-        # Create a mask for points to normalize (exclude blend shapes)
-        if len(blend_shapes_indices) > 0:
-            # Save blend shapes data before normalization
-            blend_shapes_data = self.body.data[:, :, blend_shapes_indices, :].copy()
-        
-        # Apply centering to all points
         self.body.data -= center
 
         mean_distance = distance_batch(p1s, p2s).mean()
@@ -157,10 +137,6 @@ class Pose:
         scale = scale_factor / mean_distance
 
         self.body.data = self.body.data * scale
-        
-        # Restore blend shapes data (don't scale/center them)
-        if len(blend_shapes_indices) > 0:
-            self.body.data[:, :, blend_shapes_indices, :] = blend_shapes_data
 
         return self
 
