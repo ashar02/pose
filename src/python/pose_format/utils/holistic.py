@@ -268,6 +268,31 @@ def blend_shapes_points(blend_shapes, num: int):
     return np.zeros((num, 3), dtype=np.float32), np.zeros(num, dtype=np.float32)
 
 
+# Face Landmarker's short-range detector misses a full-body signer's face, so it gets a crop around the holistic face.
+FACE_CROP_SCALE = 2.2
+FACE_CROP_EASE = 0.4
+
+
+def _face_crop(frame, face_landmarks, box):
+    """Square crop around the holistic face, eased over frames; the whole frame until a face is seen."""
+    h, w = frame.shape[:2]
+    if face_landmarks is not None:
+        xs = np.array([p.x for p in face_landmarks.landmark]) * w
+        ys = np.array([p.y for p in face_landmarks.landmark]) * h
+        found = np.array([(xs.min() + xs.max()) / 2, (ys.min() + ys.max()) / 2,
+                          max(np.ptp(xs), np.ptp(ys)) * FACE_CROP_SCALE])
+        box = found if box is None else box + (found - box) * FACE_CROP_EASE
+    if box is None:
+        return np.ascontiguousarray(frame), None
+    half = max(int(box[2] / 2), 1)
+    x0, y0 = int(round(box[0])) - half, int(round(box[1])) - half
+    pad = max(0, -x0, -y0, x0 + 2 * half - w, y0 + 2 * half - h)
+    if pad:
+        frame = np.pad(frame, ((pad, pad), (pad, pad)) + ((0, 0),) * (frame.ndim - 2))
+        x0, y0 = x0 + pad, y0 + pad
+    return np.ascontiguousarray(frame[y0:y0 + 2 * half, x0:x0 + 2 * half]), box
+
+
 def process_holistic(frames: list,
                      fps: float,
                      w: int,
@@ -340,6 +365,7 @@ def process_holistic(frames: list,
     try:
         datas = []
         confs = []
+        face_box = None
 
         for i, frame in enumerate(tqdm(frames, disable=not progress)):
             results = holistic.process(frame)
@@ -355,18 +381,10 @@ def process_holistic(frames: list,
             blend_shapes_data = None
             blend_shapes_confidence = None
             if include_face_blend_shapes and face_landmarker is not None:
-                # Convert frame to MediaPipe Image format
-                # Ensure frame is RGB (numpy array)
-                import cv2
-                if len(frame.shape) == 3:
-                    # Convert BGR to RGB if needed (OpenCV uses BGR by default)
-                    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                else:
-                    rgb_frame = frame
-                
-                # Create MediaPipe Image (Image is from main mediapipe module, not vision)
-                mp_image = Image(image_format=ImageFormat.SRGB, data=rgb_frame)
-                
+                # Frames are RGB already (Holistic needs RGB), so they go in unconverted.
+                face_frame, face_box = _face_crop(frame, results.face_landmarks, face_box)
+                mp_image = Image(image_format=ImageFormat.SRGB, data=face_frame)
+
                 # Process with Face Landmarker
                 # Convert frame index to timestamp in milliseconds
                 timestamp_ms = int(i * 1000 / fps) if fps > 0 else i
